@@ -51,10 +51,10 @@ void kernel_handler_rst( ctx_t* ctx              ) {
   pcb[ 1 ].ctx.sp   = ( uint32_t )(  &tos_P1 );
 
   memset( &pcb[ 2 ], 0, sizeof( pcb_t ) );
-  pcb[ 2 ].pid      = 1;
+  pcb[ 2 ].pid      = 2;
   pcb[ 2 ].ctx.cpsr = 0x50;
-  pcb[ 2 ].ctx.pc   = ( uint32_t )( entry_P1 );
-  pcb[ 2 ].ctx.sp   = ( uint32_t )(  &tos_P1 );
+  pcb[ 2 ].ctx.pc   = ( uint32_t )( entry_P2 );
+  pcb[ 2 ].ctx.sp   = ( uint32_t )(  &tos_P2 );
 
   /* Once the PCBs are initialised, we (arbitrarily) select one to be
    * restored (i.e., executed) when the function then returns.

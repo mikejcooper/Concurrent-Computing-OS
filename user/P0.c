@@ -32,6 +32,7 @@ void P0() {
       write(0," ) = ",5);  
       intToCharArrayPrint(r);
       write(0,"\n",1);
+      yield();
     }
   }
 

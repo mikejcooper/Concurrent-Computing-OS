@@ -10,4 +10,7 @@ void yield();
 // write n bytes from x to the file descriptor fd
 int write( int fd, void* x, size_t n );
 
+// write integer upto 100 digits in lenth
+void intToCharArrayPrint(int a);
+
 #endif

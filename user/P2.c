@@ -22,6 +22,8 @@ void P2() {
       write(0," ) = ",5);  
       intToCharArrayPrint(r);
       write(0,"\n",2);
+      yield();
+
     }
   }
 
