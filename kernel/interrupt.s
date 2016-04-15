@@ -11,7 +11,7 @@ handler_rst: bl    table_copy              @ initialise interrupt vector table
              sub   sp, sp, #68             @ initialise dummy context
 
              mov   r0, sp                  @ set    C function arg. = SP
-             bl    kernel_handler_rst      @ invoke C function
+             bl    scheduler_initialise    @ invoke C function
 
              ldmia sp!, { r0, lr }         @ load   USR mode PC and CPSR
              msr   spsr, r0                @ set    USR mode        CPSR
