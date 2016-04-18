@@ -6,7 +6,7 @@
 
 #include "libc.h"
 
-// define symbols for P2 entry point and top of stack
+// define symbols for P0 entry point and top of stack
 extern void (*entry_P2)(); 
 extern uint32_t tos_P2;
 

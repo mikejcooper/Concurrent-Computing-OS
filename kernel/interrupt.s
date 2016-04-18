@@ -4,14 +4,16 @@
  */
 	
 handler_rst: bl    table_copy              @ initialise interrupt vector table
-
+             msr   cpsr, #0xD2             @ enter IRQ mode with no interrupts -- should this be that ? 
+             ldr   sp, =tos_irq            @ initialise IRQ mode stack     
+                  
              msr   cpsr, #0xD3             @ enter SVC mode with no interrupts
              ldr   sp, =tos_svc            @ initialise SVC mode stack
 
              sub   sp, sp, #68             @ initialise dummy context
 
              mov   r0, sp                  @ set    C function arg. = SP
-             bl    scheduler_initialise    @ invoke C function
+             bl    kernel_handler_rst      @ invoke C function
 
              ldmia sp!, { r0, lr }         @ load   USR mode PC and CPSR
              msr   spsr, r0                @ set    USR mode        CPSR
@@ -20,21 +22,37 @@ handler_rst: bl    table_copy              @ initialise interrupt vector table
              movs  pc, lr                  @ return from interrupt
   
 handler_svc: sub   lr, lr, #0              @ correct return address
-             sub   sp, sp, #60             @ update SVC mode stack            # allocates space on the SVC mode stack for the execution context.
-             stmia sp, { r0-r12, sp, lr }^ @ store  USR registers             # preserve USR mode r0 through to r12, plus sp (i.e., r13) and lr (i.e., r14).
+             sub   sp, sp, #60             @ update SVC mode stack
+             stmia sp, { r0-r12, sp, lr }^ @ store  USR registers
              mrs   r0, spsr                @ get    USR        CPSR
              stmdb sp!, { r0, lr }         @ store  USR PC and CPSR
  
-             mov   r0, sp                  @ set    C function arg. = SP      # set argument #0 equal to the SVC mode sp.
+             mov   r0, sp                  @ set    C function arg. = SP
              ldr   r1, [ lr, #-4 ]         @ load                     svc instruction
              bic   r1, r1, #0xFF000000     @ set    C function arg. = svc immediate
              bl    kernel_handler_svc      @ invoke C function
 
-             ldmia sp!, { r0, lr }         @ load   USR mode PC and CPSR      # restore USR mode CPSR into SVC mode SPSR, plus USR mode sp into SVC mode lr.
+             ldmia sp!, { r0, lr }         @ load   USR mode PC and CPSR
              msr   spsr, r0                @ set    USR mode        CPSR
              ldmia sp, { r0-r12, sp, lr }^ @ load   USR mode registers
              add   sp, sp, #60             @ update SVC mode SP
              movs  pc, lr                  @ return from interrupt
+
+handler_irq: sub   lr, lr, #4              @ correct return address
+             sub   sp, sp, #60             @ update IRQ mode stack
+             stmia sp, { r0-r12, sp, lr }^ @ store  USR registers -- hat : get usr modereg lr diff to 1 up by 2 lines 
+             mrs   r0, spsr                @ get    USR        CPSR
+             stmfd sp!, { r0, lr }         @ save    caller-save registers
+
+             mov   r0, sp                  @ set    C function arg. = SP r0 return r1 arg -- here no return hence arg set to r0 
+             bl    kernel_handler_irq      @ invoke C function
+
+             ldmia sp!, { r0, lr }         @ load   USR mode PC and CPSR 
+             msr   spsr, r0                @ set    USR mode        CPSR
+             ldmia sp, { r0-r12, sp, lr }^ @ load   USR mode registers
+             add   sp, sp, #60             @ update SVC mode SP
+             movs  pc, lr                  @ return from interrupt
+
 
 /* The following captures the interrupt vector table, plus a function
  * to copy it into place (which is called on reset): note that 
@@ -48,15 +66,16 @@ handler_svc: sub   lr, lr, #0              @ correct return address
 
 table_data:  ldr   pc, address_rst         @ reset                 vector -> SVC mode
              b     .                       @ undefined instruction vector -> UND mode
-             ldr   pc, address_svc         @ supervisor call       vector -> SVC mode	
+             ldr   pc, address_svc         @ supervisor call       vector -> SVC mode     
              b     .                       @ abort (prefetch)      vector -> ABT mode
              b     .                       @ abort     (data)      vector -> ABT mode
              b     .                       @ reserved
-             b     .                       @ IRQ                   vector -> IRQ mode
+             ldr   pc, address_irq         @ IRQ                   vector -> IRQ mode
              b     .                       @ FIQ                   vector -> FIQ mode
 
 address_rst: .word handler_rst
 address_svc: .word handler_svc
+address_irq: .word handler_irq 
  
 table_copy:  mov   r0, #0                  @ set destination address
              ldr   r1, =table_data         @ set source      address

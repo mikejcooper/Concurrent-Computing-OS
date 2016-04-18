@@ -19,6 +19,7 @@
 #include "P0.h"
 #include "P1.h"
 #include "P2.h"
+#include "libc.h"
 
 
 /* The kernel source code is made simpler by three type definitions:
@@ -39,6 +40,7 @@ typedef int pid_t;
 
 typedef struct {
   pid_t pid;
+  int priority;
   ctx_t ctx;
 } pcb_t;
 

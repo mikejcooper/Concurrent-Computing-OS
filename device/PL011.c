@@ -39,7 +39,7 @@ char itox( int  x ) {
   return -1;
 }
 
-void    PL011_putc( PL011_t* d, uint8_t x ) {
+void PL011_putc( PL011_t* d, uint8_t x ) {
   while( d->FR & 0x20 ) {
     /* wait while transmit FIFO is full */
   }

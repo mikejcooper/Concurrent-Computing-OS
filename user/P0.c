@@ -16,29 +16,28 @@ int is_prime( uint32_t x ) {
 
 void P0() {
   int x = 0;
-  // char* x = "hello world, I'm P0\n";
+
+  while( 1 ) {
+    write(0,"P0\n",3);
+    yield();
+  }
 
   // while( 1 ) {
-  //   write( 0, x, 20 ); yield();
+  //   // test whether each x for 2^8 < x < 2^24 is prime or not
+
+  //   for( uint32_t x = ( 1 << 8 ); x < ( 1 << 24 ); x++ ) {
+  //     int r = is_prime( x ); 
+
+  //     write(0,"is_prime( ",10);
+  //     writeInt(x);
+  //     write(0," ) = ",5);  
+  //     writeInt(r);
+  //     write(0,"\n",1);
+  //     yield();
+  //   }
   // }
-  while( 1 ) {
-    // test whether each x for 2^8 < x < 2^24 is prime or not
-
-    for( uint32_t x = ( 1 << 8 ); x < ( 1 << 24 ); x++ ) {
-      int r = is_prime( x ); 
-
-      write(0,"is_prime( ",10);
-      intToCharArrayPrint(x);
-      write(0," ) = ",5);  
-      intToCharArrayPrint(r);
-      write(0,"\n",1);
-      yield();
-    }
-  }
 
   return;
 }
 
 void (*entry_P0)() = &P0;
-
-

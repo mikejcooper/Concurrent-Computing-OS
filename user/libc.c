@@ -11,7 +11,7 @@ int write( int fd, void* x, size_t n ) {
                 "mov r1, %2 \n"
                 "mov r2, %3 \n"
                 "svc #1     \n"
-                "mov %0, r0 \n"
+                "mov %0, r0 \n" 
               : "=r" (r) 
               : "r" (fd), "r" (x), "r" (n) 
               : "r0", "r1", "r2" );
@@ -19,8 +19,9 @@ int write( int fd, void* x, size_t n ) {
   return r;
 }
 
-void intToCharArrayPrint(int a){
-  int value = a;
+void writeInt(int a){
+
+	int value = a;
   char number[100];
   int i = 0;
   while(value > 0) {
@@ -39,4 +40,5 @@ void intToCharArrayPrint(int a){
   if(a == 0){
     write(0,"0",1);
   }
+
 }
