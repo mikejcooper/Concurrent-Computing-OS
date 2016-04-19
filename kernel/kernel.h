@@ -19,6 +19,8 @@
 #include "P0.h"
 #include "P1.h"
 #include "P2.h"
+#include "terminal.h"
+
 #include "libc.h"
 
 

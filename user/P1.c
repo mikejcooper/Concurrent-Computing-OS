@@ -13,10 +13,9 @@ uint32_t gcd( uint32_t x, uint32_t y ) {
 }
 
 void P1() {
-  while( 1 ) {
     write(0,"P1\n",3);
-    yield();
-  }
+    // yield();
+  
 
 
   // while( 1 ) {

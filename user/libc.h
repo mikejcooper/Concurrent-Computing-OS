@@ -7,8 +7,13 @@
 // cooperatively yield control of processor, i.e., invoke the scheduler
 void yield();
 
+int fork();
+
+
 // write n bytes from x to the file descriptor fd
 int write( int fd, void* x, size_t n );
+
+int read( void *buffer );
 
 void writeInt(int x);
 
