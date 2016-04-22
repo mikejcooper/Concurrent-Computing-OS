@@ -152,10 +152,7 @@ void kernel_handler_svc( ctx_t* ctx, uint32_t id ) {
 
 // Handle the Interrupt Requests
 void kernel_handler_irq( ctx_t* ctx     ){
-      PL011_putc( UART0, 'A'); 
-
-
-    // PL011_putc( UART0, 'I'); 
+  PL011_puts( UART0, "Interrupt\n",10);
 
   // Read interrupt Id
   uint32_t id = GICC0 -> IAR;
@@ -163,19 +160,17 @@ void kernel_handler_irq( ctx_t* ctx     ){
   // Handle interrupt then reset Timer
   if ( id == GIC_SOURCE_TIMER0 ) {
     TIMER0 -> Timer1IntClr = 0x01;
-    PL011_putc( UART0, 'I'); 
     pcb[0].priority = 2000;
     scheduler( ctx ); 
   } else if (id == GIC_SOURCE_UART0){
-      PL011_putc( UART0, 'I'); 
       pcb[0].priority = 2000;
       scheduler( ctx ); 
+      UART0->ICR = 0x10;
+      // remove interupt letter
   }
 
   // Signal that we are done
   GICC0 -> EOIR = id;
-  PL011_putc( UART0, 'B'); 
-  PL011_putc( UART0, '\n'); 
 
 
 }
@@ -204,8 +199,8 @@ void setTimer(){
     // TIMER0->Timer1Ctrl    |= 0x00000020; // enable          timer interrupt
     // TIMER0->Timer1Ctrl    |= 0x00000080; // enable          Timer1Ctrl
     
-    // UART0-> IMSC           |= 0x00000010;
-    // UART0-> CR              = 0x00000301;
+    UART0-> IMSC           |= 0x00000010;
+    UART0-> CR              = 0x00000301;
 
     GICC0->PMR             = 0x000000F0; // unmask all            interrupts
     GICD0->ISENABLER[ 1 ] |= 0x00001010; // enable timer          interrupt
