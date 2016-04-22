@@ -4,18 +4,9 @@ void yield() {
   asm volatile( "svc #0     \n"  );
 }
 
-// pid_t fork() {
-//         pid_t r;
-//         asm volatile(
-//                 "svc #3 \n"
-//                 "mov %0, r0 \n"
-//                 : "=r" (r)
-//                 :
-//                 : "r0"
-//         );
-//         return r;
-// }
-
+void exit(){
+  asm volatile( "svc #4     \n");
+}
 
 int fork(){
   int r;

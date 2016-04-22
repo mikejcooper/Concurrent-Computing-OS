@@ -1,13 +1,22 @@
 #include "kernel.h"
 #define process_MAX 10
 
-// Dictionary 
-// ctx: context - state of OS
-// gpr: general purpose register 
+/* Since we *know* there will be 2 processes, stemming from the 2 user 
+ * programs, we can 
+ * 
+ * - allocate a fixed-size process table (of PCBs), and use a pointer
+ *   to keep track of which entry is currently executing, and
+ * - employ a fixed-case of round-robin scheduling: no more processes
+ *   can be created, and neither is able to complete.
+ */
 
-pcb_t pcb[ process_MAX ];
-pcb_t *current = NULL;
-int processNumber = 0;
+pcb_t pcb[ 10 ];
+// pcb_t pcbInitial[ 10 ];
+
+pcb_t volatile *current = NULL;
+uint32_t volatile stack[100] = {0};
+
+int volatile processNumber = 1;
 
 // Kernel reset
 void kernel_handler_rst( ctx_t* ctx              ) { 
@@ -20,19 +29,20 @@ void kernel_handler_rst( ctx_t* ctx              ) {
    */
 
   PL011_puts( UART0, "Kernal Reset \n",14);
-  // setTimer();     
+  stack[0] = tos_terminal;
+  setTimer();  
+  initialisePCBS();
   irq_enable();
 
-  // Blank every process. Set priorities to -1:
-  for ( int i = 0; i <= process_MAX; i++ ) {
-    memset( &pcb[ i ], 0, sizeof( pcb_t ) );
-    pcb[ i ].priority = -1;
-  }
+  setPCB(entry_terminal,tos_terminal,100);
+  setPCB(entry_P0,getFreeStackPosition(),0);
+  setPCB(entry_P1,getFreeStackPosition(),1);
+  setPCB(entry_P2,getFreeStackPosition(),0);
 
-  setPCB(entry_P0,tos_P0,1);
-  setPCB(entry_P1,tos_P1,1);
-  setPCB(entry_P2,tos_P2,1);
-  setPCB(entry_terminal,tos_terminal,0);
+
+
+
+
 
   // memset( &pcb[ 0 ], 0, sizeof( pcb_t ) );
   // pcb[ 0 ].pid      = 0;
@@ -47,19 +57,17 @@ void kernel_handler_rst( ctx_t* ctx              ) {
   // pcb[ 1 ].ctx.sp   = ( uint32_t )(  &tos_P1 );
 
   // memset( &pcb[ 2 ], 0, sizeof( pcb_t ) );
-  // pcb[ 2 ].pid      = 2;
+  // pcb[ 2 ].pid      = 1;
   // pcb[ 2 ].ctx.cpsr = 0x50;
   // pcb[ 2 ].ctx.pc   = ( uint32_t )( entry_P2 );
   // pcb[ 2 ].ctx.sp   = ( uint32_t )(  &tos_P2 );
 
-  // memset( &pcb[ 3 ], 0, sizeof( pcb_t ) );
-  // pcb[ 3 ].pid      = 3;
-  // pcb[ 3 ].ctx.cpsr = 0x50;
-  // pcb[ 3 ].ctx.pc   = ( uint32_t )( entry_terminal );
-  // pcb[ 3 ].ctx.sp   = ( uint32_t )(  &tos_terminal );
 
   // Set start point:
-  current = &pcb[ 3 ]; memcpy( ctx, &current->ctx, sizeof( ctx_t ) );
+  current = &pcb[ 0 ]; 
+  memcpy( ctx, &current->ctx, sizeof( ctx_t ) );
+
+
 
   return;
 }
@@ -78,7 +86,14 @@ void kernel_handler_svc( ctx_t* ctx, uint32_t id ) {
 
   switch( id ) {
     case 0x00 : { // yield()
-      // scheduler( ctx );
+      if (current -> pid == 0){
+        pcb[4].priority = 2000;
+        pcb[0].priority = 5;
+      } else {
+        pcb[0].priority = 2000;
+        pcb[4].priority = 5;
+      }
+      scheduler( ctx );
       break;
     }
     case 0x01 : { // write( fd, x, n )
@@ -92,9 +107,8 @@ void kernel_handler_svc( ctx_t* ctx, uint32_t id ) {
       
       ctx->gpr[ 0 ] = n;
       break;
-    }   
-    case 0x02 :{ //read( void *buffer );
-
+    }
+    case 0x02 : { // read
       char*  volatile input = ( char* )( ctx->gpr[ 0 ] );
       int index     = 0;
       int enter    = 0;
@@ -104,9 +118,9 @@ void kernel_handler_svc( ctx_t* ctx, uint32_t id ) {
         if (input[ index ] == '\r'){
           enter = 1;
         } else if (input[ index ] == '\177'){
-          // Backspace - remove characters 
-          // move cursor using /r /b or something 
-          // then write blank characters 
+          PL011_putc( UART0, '\b' );
+          PL011_putc( UART0, ' ' );
+          PL011_putc( UART0, '\b' );
         }   
         PL011_putc( UART0, input[ index ] );
         index++;
@@ -114,35 +128,34 @@ void kernel_handler_svc( ctx_t* ctx, uint32_t id ) {
 
       ctx -> gpr[ 0 ] = index - 1; 
       break;
-    }    
-    case 0x03 :{ // fork() 
-      // pid_t result = getpid(ctx);
-      pid_t ppid  = current -> pid;
-      pid_t cpid  = setChildMem( ppid );
-
-      if ( cpid != -1) {
-        int priority = 1;
-        setChildPCB( cpid, ppid, ctx, priority);
-        //scheduler( ctx );   
-      }
-
-
-      ctx->gpr[0] = cpid;
-      break;    
     }
-    default   : { // unknown
+    case 0x03 : { // fork()
+      pid_t volatile ppid  = current -> pid;
+      pid_t volatile cpid = getMemSlot();
+      ctx -> gpr[ 0 ] = cpid; 
+      setChildPCB(cpid, ppid, ctx);
+      scheduler( ctx );
+      break;
+    }
+    case 0x04 : { // exit()
+      killCurrentProcess();
+      scheduler( ctx );
+      break;
+    }
+    default   : { 
       break;
     }
   }
-  
   return;
 }
 
 
 // Handle the Interrupt Requests
 void kernel_handler_irq( ctx_t* ctx     ){
+      PL011_putc( UART0, 'A'); 
 
-  PL011_puts( UART0, "Kernal Interrupt \n",18);
+
+    // PL011_putc( UART0, 'I'); 
 
   // Read interrupt Id
   uint32_t id = GICC0 -> IAR;
@@ -150,94 +163,119 @@ void kernel_handler_irq( ctx_t* ctx     ){
   // Handle interrupt then reset Timer
   if ( id == GIC_SOURCE_TIMER0 ) {
     TIMER0 -> Timer1IntClr = 0x01;
-    // scheduler( ctx ); 
+    PL011_putc( UART0, 'I'); 
+    pcb[0].priority = 2000;
+    scheduler( ctx ); 
+  } else if (id == GIC_SOURCE_UART0){
+      PL011_putc( UART0, 'I'); 
+      pcb[0].priority = 2000;
+      scheduler( ctx ); 
   }
 
   // Signal that we are done
   GICC0 -> EOIR = id;
+  PL011_putc( UART0, 'B'); 
+  PL011_putc( UART0, '\n'); 
+
+
 }
 
 void scheduler( ctx_t* ctx ) {
-  if      ( current == &pcb[ 0 ] ) {
-    memcpy( &pcb[ 0 ].ctx, ctx, sizeof( ctx_t ) );
-    memcpy( ctx, &pcb[ 1 ].ctx, sizeof( ctx_t ) );
-    current = &pcb[ 1 ];
+  int volatile best = -1;
+  int volatile highestPriorityPCB = 0;
+
+  for (int volatile i = 0; i < process_MAX ; i++ ) {  
+    if ( pcb[ i ].priority > best){
+      highestPriorityPCB = i;
+      best = pcb[ i ].priority;
+    }
   }
-  else if ( current == &pcb[ 1 ] ) {
-    memcpy( &pcb[ 1 ].ctx, ctx, sizeof( ctx_t ) );
-    memcpy( ctx, &pcb[ 2 ].ctx, sizeof( ctx_t ) );
-    current = &pcb[ 2 ];
-  } else if ( current == &pcb[ 2 ] ) {
-    memcpy( &pcb[ 2 ].ctx, ctx, sizeof( ctx_t ) );
-    memcpy( ctx, &pcb[ 3 ].ctx, sizeof( ctx_t ) );
-    current = &pcb[ 3 ];
-  } else if ( current == &pcb[ 3 ] ) {
-    memcpy( &pcb[ 3 ].ctx, ctx, sizeof( ctx_t ) );
-    memcpy( ctx, &pcb[ 0 ].ctx, sizeof( ctx_t ) );
-    current = &pcb[ 0 ];
-  }
+
+  memcpy( &pcb[ current -> pid ].ctx, ctx, sizeof( ctx_t ) );
+  memcpy( ctx, &pcb[highestPriorityPCB].ctx, sizeof( ctx_t ) );
+  // update current 
+  current = &pcb[ highestPriorityPCB ];
 }
 
 void setTimer(){
-    TIMER0->Timer1Load     = 0x00001000; // select period = 2^20 ticks ~= 1 sec // change the 1 to 2 => 2sec -- you can make this much faster and much slower
-    TIMER0->Timer1Ctrl     = 0x00000002; // select 32-bit   timer
-    TIMER0->Timer1Ctrl    |= 0x00000040; // select periodic timer
-    TIMER0->Timer1Ctrl    |= 0x00000020; // enable          timer interrupt
-    TIMER0->Timer1Ctrl    |= 0x00000080; // enable          Timer1Ctrl
+    // TIMER0->Timer1Load     = 0x00001000; // select period = 2^20 ticks ~= 1 sec // change the 1 to 2 => 2sec -- you can make this much faster and much slower
+    // TIMER0->Timer1Ctrl     = 0x00000002; // select 32-bit   timer
+    // TIMER0->Timer1Ctrl    |= 0x00000040; // select periodic timer
+    // TIMER0->Timer1Ctrl    |= 0x00000020; // enable          timer interrupt
+    // TIMER0->Timer1Ctrl    |= 0x00000080; // enable          Timer1Ctrl
+    
+    // UART0-> IMSC           |= 0x00000010;
+    // UART0-> CR              = 0x00000301;
 
     GICC0->PMR             = 0x000000F0; // unmask all            interrupts
-    GICD0->ISENABLER[ 1 ] |= 0x00000010; // enable timer          interrupt
+    GICD0->ISENABLER[ 1 ] |= 0x00001010; // enable timer          interrupt
     GICC0->CTLR            = 0x00000001; // enable GIC interface
     GICD0->CTLR            = 0x00000001; // enable GIC distributor
 }
 
 // Create new Process  
 void setPCB( uint32_t pc, uint32_t sp, int priority){
-  int p = processNumber;
+  int p = getMemSlot();
   memset( &pcb[ p ], 0, sizeof( pcb_t ) );
   pcb[ p ].pid      = p;
   pcb[ p ].priority = priority;
   pcb[ p ].ctx.cpsr = 0x50;
   pcb[ p ].ctx.pc   = ( uint32_t )( pc );
   pcb[ p ].ctx.sp   = ( uint32_t )( &sp );
-  processNumber++;
 }
 
-pid_t getpid(ctx_t* ctx){
-    if (!current) {
-      return -1;
-    } else {
-      return current->pid;
-    }
-}
-
-// Create new Process -- copy parent data into child data
-void setChildPCB( pid_t cpid, pid_t ppid, ctx_t* ctx, int priority){
-  // Blank pcb cpid before writing into it 
-    memset (&pcb[ cpid ], 0, sizeof(pcb_t));
-
-    // Copying parent pcb
-    pcb[ cpid ].priority = priority; 
-    pcb[ cpid ].pid     = cpid;
-    pcb[ cpid ].ctx.pc   = pcb[ ppid ].ctx.pc;
-    pcb[ cpid ].ctx.cpsr = pcb[ ppid ].ctx.cpsr;
-    pcb[ cpid ].ctx.sp   = pcb[ ppid ].ctx.sp + (cpid - ppid)*0x00001000; 
-
-    memcpy( &pcb[ cpid ].ctx, ctx, sizeof(ctx_t));
+void setChildPCB( pid_t cpid, pid_t ppid, ctx_t* ctx){
+  memcpy( &pcb[ cpid ], 0, sizeof( pcb_t ) );
+  memcpy( &pcb[ cpid ].ctx, ctx, sizeof( ctx_t ) );
+  pcb[ cpid ].pid      = cpid;
+  pcb[ cpid ].priority = pcb[ ppid ].priority + 1;
+  pcb[ cpid ].ctx.sp   = ( uint32_t )( getFreeStackPosition());
+  pcb[ cpid ].ctx.gpr[0]   = 0;
 }
 
 
-pid_t setChildMem( pid_t ppid ) {
-  pid_t cpid = -1;
-  for(int i = 0; i < process_MAX; i++){
-    if ( pcb[ i ].priority == (-1) ) {
-      pcb[ i ].priority   = ppid;
-      cpid        = i; 
-      break;
-    }
-    i++;
+void initialisePCBS(){
+  for ( int i = 0; i <= process_MAX; i++ ) {
+    memset( &pcb[ i ], 0, sizeof( pcb_t ) );
+    pcb[ i ].priority = -1;
+    pcb[ i ].pid = i;
   }
 }
+
+pid_t getMemSlot() {
+  pid_t volatile cpid = -1;
+  for(int volatile i = 0; i < process_MAX; i++){
+    if ( pcb[ i ].priority == -1 ) {
+      return pcb[i].pid;
+    }
+  }
+}
+
+void killCurrentProcess(){
+  pcb[ current -> pid ].priority = -1;
+  clearStackSegment(pcb[ current -> pid ].ctx.sp);
+}
+
+int getFreeStackPosition(){
+  for(int volatile i = 1; i < 100; i++){
+    if (stack[i] == 0){
+      stack[i] = stack[i-1] + 0x00001000;
+      return stack[i];
+    }
+  }
+  return 0;
+}
+
+void clearStackSegment(int sp){
+  for(int volatile i = 1; i < 100; i++){
+    if (stack[i-1] < sp < stack [i]){
+      stack[i-1] = 0;
+    }
+  }
+  return 0;
+}
+
+
 
 
 

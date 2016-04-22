@@ -14,10 +14,12 @@ void P2() {
 
 
 
-  while( 1 ) {
+  while(1) {
     write(0,"P2\n",3);
     yield();
   }
+  // exit();
+  // yield();
 
 
 //   while( 1 ) {

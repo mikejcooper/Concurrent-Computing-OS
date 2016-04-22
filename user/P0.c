@@ -17,10 +17,11 @@ int is_prime( uint32_t x ) {
 void P0() {
   int x = 0;
 
-  while( 1 ) {
+  while(1) {
     write(0,"P0\n",3);
-    yield();
+    // yield();
   }
+  // exit();
 
   // while( 1 ) {
   //   // test whether each x for 2^8 < x < 2^24 is prime or not
