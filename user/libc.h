@@ -18,6 +18,10 @@ int read(void *input);
 
 int fork();
 
+void processes();
+
+int exitProcess(int pid);
+
 
 
 #endif

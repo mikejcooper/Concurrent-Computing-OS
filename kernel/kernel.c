@@ -13,11 +13,12 @@
 pcb_t pcb[ 10 ];
 // pcb_t pcbInitial[ 10 ];
 
-pcb_t volatile *current = NULL;
+pcb_t *current = NULL;
 uint32_t volatile stack[100] = {0};
 int volatile userProcesses[10] = {0};
 int volatile priorityVal = 1;
-
+//ipc
+// ipc_t ipc[10] = {0};
 // Kernel reset
 void kernel_handler_rst( ctx_t* ctx              ) { 
   /* Initialise PCBs representing processes stemming from execution of
@@ -34,33 +35,7 @@ void kernel_handler_rst( ctx_t* ctx              ) {
   initialisePCBS();
   irq_enable();
 
-  setPCB(entry_terminal,tos_terminal,0);
-  // setPCB(entry_P0,getFreeStackPosition(),1);
-  // setPCB(entry_P1,getFreeStackPosition(),1);
-  // setPCB(entry_P2,getFreeStackPosition(),1);
-
-
-
-
-
-
-  // memset( &pcb[ 0 ], 0, sizeof( pcb_t ) );
-  // pcb[ 0 ].pid      = 0;
-  // pcb[ 0 ].ctx.cpsr = 0x50;
-  // pcb[ 0 ].ctx.pc   = ( uint32_t )( entry_P0 );
-  // pcb[ 0 ].ctx.sp   = ( uint32_t )(  &tos_P0 );
-
-  // memset( &pcb[ 1 ], 0, sizeof( pcb_t ) );
-  // pcb[ 1 ].pid      = 1;
-  // pcb[ 1 ].ctx.cpsr = 0x50;
-  // pcb[ 1 ].ctx.pc   = ( uint32_t )( entry_P1 );
-  // pcb[ 1 ].ctx.sp   = ( uint32_t )(  &tos_P1 );
-
-  // memset( &pcb[ 2 ], 0, sizeof( pcb_t ) );
-  // pcb[ 2 ].pid      = 1;
-  // pcb[ 2 ].ctx.cpsr = 0x50;
-  // pcb[ 2 ].ctx.pc   = ( uint32_t )( entry_P2 );
-  // pcb[ 2 ].ctx.sp   = ( uint32_t )(  &tos_P2 );
+  setPCB((uint32_t)entry_terminal,tos_terminal,0);
 
 
   // Set start point:
@@ -144,6 +119,15 @@ void kernel_handler_svc( ctx_t* ctx, uint32_t id ) {
       killCurrentProcess();
       scheduler( ctx );
       break;
+    }             
+    case 0x05 : { // getProcesses()
+      printProcesses();
+      break;
+    }
+    case 0x06 : {
+      int pid = ctx->gpr[ 1 ];
+      exitProcessX(pid);
+      ctx -> gpr[ 0 ] = 1; 
     }
     default   : { 
       break;
@@ -168,6 +152,7 @@ void kernel_handler_irq( ctx_t* ctx     ){
       pcb[0].priority = 2000; 
       scheduler( ctx );
       pcb[0].priority = 0;
+      PL011_getc( UART0 );
       UART0->ICR = 0x10;
   }
 
@@ -239,7 +224,7 @@ void setChildPCB( pid_t cpid, pid_t ppid, ctx_t* ctx){
 
 
 void initialisePCBS(){
-  for ( int i = 0; i <= process_MAX; i++ ) {
+  for ( int volatile i = 0; i <= process_MAX; i++ ) {
     memset( &pcb[ i ], 0, sizeof( pcb_t ) );
     pcb[ i ].priority = -1;
     pcb[ i ].pid = i;
@@ -276,7 +261,6 @@ void clearStackSegment(int sp){
       stack[i-1] = 0;
     }
   }
-  return 0;
 }
 
 // int userProcessExecute(){
@@ -296,6 +280,28 @@ void clearStackSegment(int sp){
 //     }
 //   }
 // }
+
+void printProcesses(){
+  for(int volatile i = 0; i < process_MAX; i++){
+    int pid = pcb[i].pid;
+    int priority = pcb[i].priority;
+    if(priority != -1){
+      PL011_puts( UART0, "   Processes:\n",14);
+      PL011_puts( UART0, "       ID: ",14);
+      writeInt(pid);
+      PL011_puts( UART0, " , Priority: ",13);
+      writeInt(pid);
+      PL011_puts( UART0, "\n",1);
+    }
+  }
+}
+
+
+void exitProcessX(int pid){
+  pcb[ pid ].priority = -1;
+  clearStackSegment(pcb[ pid ].ctx.sp);
+}
+
 
 
 

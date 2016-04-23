@@ -13,32 +13,24 @@ uint32_t gcd( uint32_t x, uint32_t y ) {
 }
 
 void P1() {
-  while(1){
-    write(0,"P1\n",3);
+  while( 1 ) {
+    // compute the gcd between pairs of x and y for 2^4 < x, y < 2^8
+
+    for( uint32_t x = ( 1 << 4 ); x < ( 1 << 8 ); x++ ) {
+      for( uint32_t y = ( 1 << 4 ); y < ( 1 << 8 ); y++ ) {
+        uint32_t r = gcd( x, y );
+
+        write(0,"gcd( ",5);
+        writeInt(x);
+        write(0,", ",2);  
+        writeInt(y);
+        write(0," ) = ",5);
+        writeInt(r);
+        write(0,"\n",2);
+
+      }
+    }
   }
-  // exit();
-
-
-  // while( 1 ) {
-  //   // compute the gcd between pairs of x and y for 2^4 < x, y < 2^8
-
-  //   for( uint32_t x = ( 1 << 4 ); x < ( 1 << 8 ); x++ ) {
-  //     for( uint32_t y = ( 1 << 4 ); y < ( 1 << 8 ); y++ ) {
-  //       uint32_t r = gcd( x, y );
-
-  //       write(0,"gcd( ",5);
-  //       writeInt(x);
-  //       write(0,", ",2);  
-  //       writeInt(y);
-  //       write(0," ) = ",5);
-  //       writeInt(r);
-  //       write(0,"\n",2);
-
-  //     }
-  //   }
-  //   yield();
-
-  // }
 
   return;
 }

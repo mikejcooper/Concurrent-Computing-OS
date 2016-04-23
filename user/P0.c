@@ -15,28 +15,19 @@ int is_prime( uint32_t x ) {
 }
 
 void P0() {
-  int x = 0;
 
-  while(1) {
-    write(0,"P0\n",3);
-    // yield();
+  while( 1 ) {
+    // test whether each x for 2^8 < x < 2^24 is prime or not
+
+    for( uint32_t x = ( 1 << 8 ); x < ( 1 << 24 ); x++ ) {
+      int r = is_prime( x ); 
+      write(0,"is_prime( ",10);
+      writeInt(x);
+      write(0," ) = ",5);  
+      writeInt(r);
+      write(0,"\n",1);
+    }
   }
-  // exit();
-
-  // while( 1 ) {
-  //   // test whether each x for 2^8 < x < 2^24 is prime or not
-
-  //   for( uint32_t x = ( 1 << 8 ); x < ( 1 << 24 ); x++ ) {
-  //     int r = is_prime( x ); 
-
-  //     write(0,"is_prime( ",10);
-  //     writeInt(x);
-  //     write(0," ) = ",5);  
-  //     writeInt(r);
-  //     write(0,"\n",1);
-  //     yield();
-  //   }
-  // }
 
   return;
 }

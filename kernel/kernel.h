@@ -45,4 +45,29 @@ typedef struct {
   ctx_t ctx;
 } pcb_t;
 
+// typedef struct {
+//   pid_t pidA;
+//   pid_t pidB;
+//   char info[100];
+//   int flagA;
+//   int flagB;
+// } ipc_t;
+
+
+void exitProcessX(int pid);
+void printProcesses();
+void clearStackSegment(int sp);\
+int getFreeStackPosition();
+void killCurrentProcess();
+pid_t getMemSlot();
+void initialisePCBS();
+void setChildPCB( pid_t cpid, pid_t ppid, ctx_t* ctx);
+void setPCB( uint32_t pc, uint32_t sp, int priority);
+void setTimer();
+void scheduler( ctx_t* ctx );
+void kernel_handler_irq( ctx_t* ctx     );
+void kernel_handler_svc( ctx_t* ctx, uint32_t id );
+void kernel_handler_rst( ctx_t* ctx              );
+
+
 #endif

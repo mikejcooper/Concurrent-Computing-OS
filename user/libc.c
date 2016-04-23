@@ -8,12 +8,28 @@ void exit(){
   asm volatile( "svc #4     \n");
 }
 
+void processes(){
+  asm volatile( "svc #5     \n");
+}
+
 int fork(){
   int r;
   asm volatile( "svc #3     \n"
                 "mov %0, r0 \n"
                 : "=r" (r));
   return r;
+}
+
+int exitProcess(int pid){
+  int r;
+  asm volatile( "mov r1, %1 \n"
+                "svc #6     \n"
+                "mov %0, r1 \n"
+                : "=r" (r)
+                : "r" (pid)
+                : "r1");
+  return r;
+
 }
 
 int write( int fd, void* x, size_t n ) {
