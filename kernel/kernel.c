@@ -11,8 +11,6 @@
  */
 
 pcb_t pcb[ 10 ];
-// pcb_t pcbInitial[ 10 ];
-
 pcb_t *current = NULL;
 uint32_t volatile stack[100] = {0};
 int volatile userProcesses[10] = {0};
@@ -32,9 +30,7 @@ void kernel_handler_rst( ctx_t* ctx              ) {
   setTimer();  
   initialisePCBS();
   irq_enable();
-
   setPCB((uint32_t)entry_terminal,tos_terminal,0);
-
 
   // Set start point:
   current = &pcb[ 0 ]; 
@@ -54,8 +50,6 @@ void kernel_handler_svc( ctx_t* ctx, uint32_t id ) {
    * - perform whatever is appropriate for this system call,
    * - write any return value back to preserved usr mode registers.
    */
-
-
 
   switch( id ) {
     case 0x00 : { // yield()
