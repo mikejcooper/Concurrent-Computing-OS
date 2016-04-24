@@ -28,5 +28,5 @@ void P2() {
   return;
 }
 
-// void (*entry_P2)() = &P2;
+void (*entry_P2)() = &P2;
 

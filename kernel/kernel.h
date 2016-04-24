@@ -68,6 +68,12 @@ void scheduler( ctx_t* ctx );
 void kernel_handler_irq( ctx_t* ctx     );
 void kernel_handler_svc( ctx_t* ctx, uint32_t id );
 void kernel_handler_rst( ctx_t* ctx              );
+void increasePriority(int pid, int priority);
+void priorityDistribution(int pid);
+int getPriorityLow();
+int getPriorityHigh();
+
+
 
 
 #endif

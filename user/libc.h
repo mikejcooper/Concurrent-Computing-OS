@@ -12,7 +12,7 @@ int write( int fd, void* x, size_t n );
 
 void writeInt(int x);
 
-void exit();
+void kill();
 
 int read(void *input);
 
@@ -20,7 +20,13 @@ int fork();
 
 void processes();
 
-int exitProcess(int pid);
+int exit(int pid);
+
+int increasePrior(int pid, int priority);
+
+int shared();
+
+int writeShared(int value);
 
 
 

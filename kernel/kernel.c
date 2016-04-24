@@ -16,10 +16,8 @@ pcb_t pcb[ 10 ];
 pcb_t *current = NULL;
 uint32_t volatile stack[100] = {0};
 int volatile userProcesses[10] = {0};
-int volatile priorityVal = 1;
-//ipc
-// ipc_t ipc[10] = {0};
-// Kernel reset
+int volatile sharedVariable = 0;
+
 void kernel_handler_rst( ctx_t* ctx              ) { 
   /* Initialise PCBs representing processes stemming from execution of
    * the two user programs.  Note in each case that
@@ -29,7 +27,7 @@ void kernel_handler_rst( ctx_t* ctx              ) {
    * - the PC and SP values matche the entry point and top of stack. 
    */
 
-  PL011_puts( UART0, "Kernal Reset \n",14);
+  // PL011_puts( UART0, "Kernal Reset \n",14);
   stack[0] = tos_terminal;
   setTimer();  
   initialisePCBS();
@@ -61,14 +59,9 @@ void kernel_handler_svc( ctx_t* ctx, uint32_t id ) {
 
   switch( id ) {
     case 0x00 : { // yield()
-      // if (current -> pid == 0){
-      //   pcb[4].priority = 2000;
-      //   pcb[0].priority = 5;
-      // } else {
-      //   pcb[0].priority = 2000;
-      //   pcb[4].priority = 5;
-      // }
       scheduler( ctx );
+      priorityDistribution(current -> pid);
+
       break;
     }
     case 0x01 : { // write( fd, x, n )
@@ -115,7 +108,7 @@ void kernel_handler_svc( ctx_t* ctx, uint32_t id ) {
       scheduler( ctx );
       break;
     }
-    case 0x04 : { // exit()
+    case 0x04 : { // kill()
       killCurrentProcess();
       scheduler( ctx );
       break;
@@ -124,10 +117,27 @@ void kernel_handler_svc( ctx_t* ctx, uint32_t id ) {
       printProcesses();
       break;
     }
-    case 0x06 : {
+    case 0x06 : { // exit
       int pid = ctx->gpr[ 1 ];
       exitProcessX(pid);
+      ctx -> gpr[ 0 ] = 1;
+      break; 
+    } 
+    case 0x07 : { // increase priority
+      int pid = ctx->gpr[ 1 ];
+      int priority = ctx->gpr[ 2 ];
+      increasePriority(pid, priority);
       ctx -> gpr[ 0 ] = 1; 
+      break;
+    }
+    case 0x08 : { // shared int
+      ctx -> gpr[ 1 ] = sharedVariable; 
+      break;
+    }
+    case 0x09 : { // shared int
+      int value = ctx->gpr[ 1 ];
+      sharedVariable = value;
+      break;
     }
     default   : { 
       break;
@@ -139,7 +149,7 @@ void kernel_handler_svc( ctx_t* ctx, uint32_t id ) {
 
 // Handle the Interrupt Requests
 void kernel_handler_irq( ctx_t* ctx     ){
-  PL011_puts( UART0, "Interrupt\n",10);
+  PL011_puts( UART0, "\nInterrupt\n",11);
 
   // Read interrupt Id
   uint32_t id = GICC0 -> IAR;
@@ -151,6 +161,8 @@ void kernel_handler_irq( ctx_t* ctx     ){
   } else if (id == GIC_SOURCE_UART0){
       pcb[0].priority = 2000; 
       scheduler( ctx );
+      priorityDistribution(current -> pid);
+
       pcb[0].priority = 0;
       PL011_getc( UART0 );
       UART0->ICR = 0x10;
@@ -176,6 +188,7 @@ void scheduler( ctx_t* ctx ) {
   }
   else {
     highestPriorityPCB = 0;
+    pcb[ current -> pid ].priority = getPriorityLow() - 1;
   }
   
 
@@ -213,11 +226,11 @@ void setPCB( uint32_t pc, uint32_t sp, int priority){
 }
 
 void setChildPCB( pid_t cpid, pid_t ppid, ctx_t* ctx){
+  int priority = getPriorityHigh() + 1;
   memcpy( &pcb[ cpid ], 0, sizeof( pcb_t ) );
   memcpy( &pcb[ cpid ].ctx, ctx, sizeof( ctx_t ) );
   pcb[ cpid ].pid      = cpid;
-  pcb[ cpid ].priority = priorityVal;
-  priorityVal++;
+  pcb[ cpid ].priority = priority;
   pcb[ cpid ].ctx.sp   = ( uint32_t )( getFreeStackPosition());
   pcb[ cpid ].ctx.gpr[0]   = 0;
 }
@@ -263,34 +276,17 @@ void clearStackSegment(int sp){
   }
 }
 
-// int userProcessExecute(){
-//   for(int volatile i = 0; i < 10; i++){
-//     if (userProcesses[i] != 0){
-//       userProcesses[i] = 0;
-//       return userProcesses[i];
-//     }
-//   }
-//   return 0; 
-// }
-
-// void setUserProcess(int cpid){
-//   for(int volatile i = 0; i < 10; i++){
-//     if (userProcesses[i] == 0){
-//       userProcesses[i] = cpid;
-//     }
-//   }
-// }
 
 void printProcesses(){
   for(int volatile i = 0; i < process_MAX; i++){
-    int pid = pcb[i].pid;
-    int priority = pcb[i].priority;
+    int volatile pid = pcb[i].pid;
+    int volatile priority = pcb[i].priority;
     if(priority != -1){
       PL011_puts( UART0, "   Processes:\n",14);
       PL011_puts( UART0, "       ID: ",14);
       writeInt(pid);
       PL011_puts( UART0, " , Priority: ",13);
-      writeInt(pid);
+      writeInt(priority);
       PL011_puts( UART0, "\n",1);
     }
   }
@@ -302,6 +298,41 @@ void exitProcessX(int pid){
   clearStackSegment(pcb[ pid ].ctx.sp);
 }
 
+void increasePriority(int pid, int priority){
+  pcb[pid].priority = priority;
+}
+
+void priorityDistribution(int pid){
+  for ( int volatile i = 0; i <= process_MAX; i++ ) {
+      if (i != pid && pcb[ i ].priority != -1){
+        pcb[ i ].priority = pcb[ i ].priority + 1;
+      }
+  }
+}
+
+int getPriorityLow(){
+  int volatile low = 1000;
+  for ( int volatile i = 1; i < process_MAX; i++ ) {
+      if (pcb[ i ].priority < low && pcb[ i ].priority != -1){
+        low = pcb[ i ].priority;
+      }
+  }
+  if(low == 1000){
+    return 1;
+  } else {
+    return low;
+  }
+}
+
+int getPriorityHigh(){
+  int volatile high = 0;
+  for ( int volatile i = 1; i < process_MAX; i++ ) {
+      if (pcb[ i ].priority > high && pcb[ i ].priority != -1){
+        high = pcb[ i ].priority;
+      }
+  }
+  return high;
+}
 
 
 

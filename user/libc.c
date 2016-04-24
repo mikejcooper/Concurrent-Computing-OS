@@ -4,7 +4,7 @@ void yield() {
   asm volatile( "svc #0     \n"  );
 }
 
-void exit(){
+void kill(){
   asm volatile( "svc #4     \n");
 }
 
@@ -20,7 +20,7 @@ int fork(){
   return r;
 }
 
-int exitProcess(int pid){
+int exit(int pid){
   int r;
   asm volatile( "mov r1, %1 \n"
                 "svc #6     \n"
@@ -28,6 +28,19 @@ int exitProcess(int pid){
                 : "=r" (r)
                 : "r" (pid)
                 : "r1");
+  return r;
+
+}
+
+int increasePrior(int pid, int priority){
+  int r;
+  asm volatile( "mov r1, %1 \n"
+                "mov r2, %2 \n"
+                "svc #7     \n"
+                "mov %0, r1 \n"
+                : "=r" (r)
+                : "r" (pid), "r" (priority)
+                : "r1", "r2");
   return r;
 
 }
@@ -56,6 +69,26 @@ int read(void *input){
                 : "r" (input)
                 : "r0");
   return r;
+}
+
+int shared(){
+  int r;
+  asm volatile( "svc #8     \n"
+                "mov %0, r1 \n"
+                : "=r" (r));
+  return r;
+}
+
+int writeShared(int value){
+  int r;
+  asm volatile( "mov r1, %1 \n"
+                "svc #9     \n"
+                "mov %0, r1 \n"
+                : "=r" (r)
+                : "r" (value)
+                : "r1");
+  return r;
+
 }
 
 void writeInt(int a){
